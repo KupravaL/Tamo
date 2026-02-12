@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tamo - Task Wheel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 24px 16px 8px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #e94560, #f5a623);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+    }
+
+    header p {
+      color: #888;
+      margin-top: 4px;
+      font-size: 0.95rem;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 40px;
+      padding: 24px 16px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ---- Wheel Section ---- */
+    .wheel-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .wheel-wrapper {
+      position: relative;
+      width: 420px;
+      height: 420px;
+    }
+
+    .arrow {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      width: 0;
+      height: 0;
+      border-left: 18px solid transparent;
+      border-right: 18px solid transparent;
+      border-top: 36px solid #f5a623;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.5));
+    }
+
+    canvas#wheelCanvas {
+      width: 420px;
+      height: 420px;
+      border-radius: 50%;
+      box-shadow: 0 0 40px rgba(233, 69, 96, .3), 0 0 80px rgba(233, 69, 96, .1);
+    }
+
+    .spin-btn {
+      padding: 14px 48px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(135deg, #e94560, #c2185b);
+      color: #fff;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      letter-spacing: 1px;
+    }
+
+    .spin-btn:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(233,69,96,.4); }
+    .spin-btn:active { transform: scale(.97); }
+    .spin-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* ---- Result Banner ---- */
+    .result-banner {
+      text-align: center;
+      min-height: 48px;
+      font-size: 1.1rem;
+    }
+
+    .result-banner .picked {
+      display: inline-block;
+      background: rgba(233, 69, 96, .15);
+      border: 1px solid #e94560;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      animation: popIn .35s ease;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* ---- Task List Section ---- */
+    .task-section {
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .task-section h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #f5a623;
+    }
+
+    .add-task-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .add-task-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #16213e;
+      color: #eee;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .add-task-row input:focus { border-color: #e94560; }
+
+    .add-task-row button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      background: #e94560;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+      white-space: nowrap;
+    }
+
+    .add-task-row button:hover { background: #c2185b; }
+
+    .task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 460px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .task-list::-webkit-scrollbar { width: 6px; }
+    .task-list::-webkit-scrollbar-track { background: transparent; }
+    .task-list::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #16213e;
+      border-radius: 8px;
+      border: 1px solid #222;
+      transition: background .2s, opacity .3s;
+    }
+
+    .task-item.completed {
+      opacity: .45;
+    }
+
+    .task-item.completed .task-name {
+      text-decoration: line-through;
+    }
+
+    .task-item.highlighted {
+      border-color: #e94560;
+      background: rgba(233, 69, 96, .1);
+    }
+
+    .task-item .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .task-name {
+      flex: 1;
+      font-size: .95rem;
+      word-break: break-word;
+    }
+
+    .complete-btn, .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background .15s;
+    }
+
+    .complete-btn { color: #4caf50; }
+    .complete-btn:hover { background: rgba(76, 175, 80, .15); }
+
+    .delete-btn { color: #e94560; }
+    .delete-btn:hover { background: rgba(233, 69, 96, .15); }
+
+    .empty-msg {
+      color: #555;
+      font-style: italic;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .stats {
+      font-size: .85rem;
+      color: #666;
+      text-align: center;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 900px) {
+      .container { flex-direction: column; align-items: center; }
+      .wheel-wrapper, canvas#wheelCanvas { width: 340px; height: 340px; }
+      .task-section { width: 340px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>TAMO</h1>
+  <p>Spin the wheel &mdash; pick your next task!</p>
+</header>
+
+<div class="container">
+  <!-- Wheel -->
+  <div class="wheel-section">
+    <div class="wheel-wrapper">
+      <div class="arrow"></div>
+      <canvas id="wheelCanvas" width="840" height="840"></canvas>
+    </div>
+    <button class="spin-btn" id="spinBtn">SPIN</button>
+    <div class="result-banner" id="resultBanner"></div>
+  </div>
+
+  <!-- Task list -->
+  <div class="task-section">
+    <h2>Tasks</h2>
+    <div class="add-task-row">
+      <input type="text" id="taskInput" placeholder="Add a new task..." maxlength="60">
+      <button id="addBtn">Add</button>
+    </div>
+    <ul class="task-list" id="taskList"></ul>
+    <div class="stats" id="stats"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---- State ----
+  const COLORS = [
+    '#e94560','#f5a623','#4caf50','#2196f3','#9c27b0',
+    '#00bcd4','#ff5722','#8bc34a','#ffc107','#e91e63',
+    '#3f51b5','#009688','#ff9800','#673ab7','#cddc39',
+    '#607d8b','#795548','#03a9f4'
+  ];
+
+  let tasks = JSON.parse(localStorage.getItem('tamo_tasks') || '[]');
+  let angle = 0;       // current wheel rotation in degrees
+  let spinning = false;
+
+  const canvas  = document.getElementById('wheelCanvas');
+  const ctx     = canvas.getContext('2d');
+  const spinBtn = document.getElementById('spinBtn');
+  const taskInput = document.getElementById('taskInput');
+  const addBtn  = document.getElementById('addBtn');
+  const taskListEl = document.getElementById('taskList');
+  const resultBanner = document.getElementById('resultBanner');
+  const statsEl = document.getElementById('stats');
+
+  const CX = canvas.width / 2;
+  const CY = canvas.height / 2;
+  const R  = canvas.width / 2 - 10;
+
+  // ---- Persistence ----
+  function save() {
+    localStorage.setItem('tamo_tasks', JSON.stringify(tasks));
+  }
+
+  // ---- Active (non-completed) tasks ----
+  function activeTasks() {
+    return tasks.filter(t => !t.done);
+  }
+
+  // ---- Drawing ----
+  function drawWheel() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const active = activeTasks();
+    const n = active.length;
+
+    if (n === 0) {
+      // Empty state
+      ctx.beginPath();
+      ctx.arc(CX, CY, R, 0, Math.PI * 2);
+      ctx.fillStyle = '#16213e';
+      ctx.fill();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.fillStyle = '#555';
+      ctx.font = 'bold 32px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Add tasks to begin', CX, CY);
+      return;
+    }
+
+    const sliceAngle = (Math.PI * 2) / n;
+    const rotRad = (angle * Math.PI) / 180;
+
+    for (let i = 0; i < n; i++) {
+      const start = rotRad + i * sliceAngle;
+      const end   = start + sliceAngle;
+
+      // Slice
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.arc(CX, CY, R, start, end);
+      ctx.closePath();
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fill();
+      ctx.strokeStyle = '#1a1a2e';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Text
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(start + sliceAngle / 2);
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${n > 12 ? 18 : n > 8 ? 22 : 26}px Segoe UI, sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,.6)';
+      ctx.shadowBlur = 4;
+      const label = active[i].text.length > 18
+        ? active[i].text.slice(0, 16) + '...'
+        : active[i].text;
+      ctx.fillText(label, R - 24, 0);
+      ctx.restore();
+    }
+
+    // Center circle
+    ctx.beginPath();
+    ctx.arc(CX, CY, 38, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fill();
+    ctx.strokeStyle = '#f5a623';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  }
+
+  // ---- Determine winning task ----
+  function getWinningIndex() {
+    const active = activeTasks();
+    const n = active.length;
+    if (n === 0) return -1;
+    const sliceAngle = 360 / n;
+    // Arrow is at top (270 degrees in standard math coords)
+    // Normalize: which slice is at 270 deg from current rotation
+    let pointerAngle = (270 - angle % 360 + 360) % 360;
+    return Math.floor(pointerAngle / sliceAngle) % n;
+  }
+
+  // ---- Spin ----
+  function spin() {
+    const active = activeTasks();
+    if (active.length < 2) {
+      resultBanner.innerHTML = '<span style="color:#888">Add at least 2 tasks to spin!</span>';
+      return;
+    }
+    if (spinning) return;
+    spinning = true;
+    spinBtn.disabled = true;
+    resultBanner.innerHTML = '';
+
+    // Random total rotation: 5-10 full spins + random offset
+    const extraDeg = Math.random() * 360;
+    const totalDeg = 360 * (5 + Math.random() * 5) + extraDeg;
+    const startAngle = angle;
+    const targetAngle = startAngle + totalDeg;
+    const duration = 4000 + Math.random() * 1000;
+    const startTime = performance.now();
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      angle = startAngle + totalDeg * easeOutCubic(t);
+      drawWheel();
+
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        spinning = false;
+        spinBtn.disabled = false;
+        const idx = getWinningIndex();
+        if (idx >= 0) {
+          const winner = active[idx];
+          resultBanner.innerHTML = `<span class="picked">&#127919; ${escHtml(winner.text)}</span>`;
+          highlightTask(winner.id);
+        }
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  // ---- Task list rendering ----
+  function renderTasks() {
+    if (tasks.length === 0) {
+      taskListEl.innerHTML = '<li class="empty-msg">No tasks yet. Add one above!</li>';
+      statsEl.textContent = '';
+      drawWheel();
+      return;
+    }
+
+    const doneCount = tasks.filter(t => t.done).length;
+    statsEl.textContent = `${doneCount} / ${tasks.length} completed`;
+
+    taskListEl.innerHTML = '';
+
+    // Show active first, then completed
+    const sorted = [...tasks.filter(t => !t.done), ...tasks.filter(t => t.done)];
+
+    sorted.forEach(task => {
+      const li = document.createElement('li');
+      li.className = 'task-item' + (task.done ? ' completed' : '');
+      li.dataset.id = task.id;
+
+      const dot = document.createElement('span');
+      dot.className = 'color-dot';
+      const activeIndex = activeTasks().findIndex(t => t.id === task.id);
+      dot.style.background = activeIndex >= 0 ? COLORS[activeIndex % COLORS.length] : '#555';
+
+      const name = document.createElement('span');
+      name.className = 'task-name';
+      name.textContent = task.text;
+
+      li.appendChild(dot);
+      li.appendChild(name);
+
+      if (!task.done) {
+        const completeBtn = document.createElement('button');
+        completeBtn.className = 'complete-btn';
+        completeBtn.title = 'Mark complete';
+        completeBtn.innerHTML = '&#10003;';
+        completeBtn.addEventListener('click', () => completeTask(task.id));
+        li.appendChild(completeBtn);
+      }
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-btn';
+      delBtn.title = 'Remove task';
+      delBtn.innerHTML = '&#10005;';
+      delBtn.addEventListener('click', () => deleteTask(task.id));
+      li.appendChild(delBtn);
+
+      taskListEl.appendChild(li);
+    });
+
+    drawWheel();
+  }
+
+  function highlightTask(id) {
+    document.querySelectorAll('.task-item').forEach(el => el.classList.remove('highlighted'));
+    const el = document.querySelector(`.task-item[data-id="${id}"]`);
+    if (el) {
+      el.classList.add('highlighted');
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  // ---- Task actions ----
+  function addTask(text) {
+    text = text.trim();
+    if (!text) return;
+    tasks.push({ id: Date.now().toString(), text, done: false });
+    save();
+    renderTasks();
+  }
+
+  function completeTask(id) {
+    const t = tasks.find(t => t.id === id);
+    if (t) { t.done = true; save(); renderTasks(); }
+  }
+
+  function deleteTask(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    save();
+    renderTasks();
+  }
+
+  // ---- Helpers ----
+  function escHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ---- Events ----
+  spinBtn.addEventListener('click', spin);
+
+  addBtn.addEventListener('click', () => {
+    addTask(taskInput.value);
+    taskInput.value = '';
+    taskInput.focus();
+  });
+
+  taskInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      addTask(taskInput.value);
+      taskInput.value = '';
+    }
+  });
+
+  // ---- Init ----
+  renderTasks();
+})();
+</script>
+
+</body>
+</html>
